@@ -48,6 +48,33 @@ python run.py --no-vault    # store + Telegram only
 Exit code is non-zero on hard failure (all sources returned 0 offers, or the
 Telegram API rejected the message).
 
+## Interactive filter bot (`bot.py`)
+
+The daily digest carries an inline keyboard: one button per tracked store plus
+**All**. Tapping a store button edits the digest message in place to show only
+that store's deals (re-ranked from `data/deals.json`); **All** restores the full
+digest. The active view's button is marked with a "• ".
+
+This is a separate always-on process — `run.py` does not depend on it.
+
+```powershell
+python bot.py          # long-poll forever (getUpdates)
+python bot.py --once    # process one batch of updates and exit (for testing)
+powershell -ExecutionPolicy Bypass -File install-bot-task.ps1
+```
+
+`install-bot-task.ps1` registers the per-user task **SupermarketDealsBot** (runs
+at logon, restarts up to 3× a minute apart, no admin). Uninstall:
+`Unregister-ScheduledTask -TaskName "SupermarketDealsBot" -Confirm:$false`.
+
+State: `run.py` writes `data/last_digest.json` (`chat_id` / `message_id` / `date`)
+so a button tap or `/start` still works after the bot restarts; `bot.py` tracks
+its update `offset` in `data/bot_offset.json`. Only one poller may run at once —
+a Telegram 409 "conflict" is logged and the bot exits non-zero.
+
+**Caveat:** like the daily task, the bot is down whenever the PC is off or
+asleep. Taps made while it's down are processed when it next starts.
+
 ## Changing stores or zip code
 
 - Zip: edit the `zip_code="4020"` argument in `run.py` (`fetch_all`).

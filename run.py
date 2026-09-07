@@ -7,8 +7,8 @@ from pathlib import Path
 
 import store
 import vault
-from notify import build_message, send
-from rank import load_watchlist, rank
+from notify import build_keyboard, build_message, save_last_digest, send
+from rank import hots, load_watchlist, rank
 from sources.marktguru import MarktguruSource
 
 try:
@@ -19,6 +19,7 @@ except AttributeError:
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_FILE = ROOT / "config.ini"
+LAST_DIGEST_FILE = ROOT / "data" / "last_digest.json"
 
 
 def load_config(require_telegram: bool) -> configparser.ConfigParser:
@@ -71,7 +72,8 @@ def main() -> int:
 
     watchlist = load_watchlist()
     hits, top = rank(ranked, watchlist, today=today)
-    message = build_message(hits, top, today)
+    hot = hots(ranked, today=today)
+    message = build_message(hits, top, today, hot)
 
     print("\n" + "=" * 60)
     print(message)
@@ -82,16 +84,21 @@ def main() -> int:
         return 0
 
     if not args.no_vault:
-        path = vault.append(hits, top, today)
+        path = vault.append(hits, top, today, hots=hot)
         print(f"vault updated: {path}")
 
     if not args.no_telegram:
         tg = cfg["telegram"]
-        resp = send(message, tg["token"], tg["chat_id"])
+        resp = send(message, tg["token"], tg["chat_id"], build_keyboard())
         print(f"telegram: ok={resp.get('ok')}")
         if not resp.get("ok"):
             print(f"telegram error: {resp}", file=sys.stderr)
             return 1
+        result = resp.get("result") or {}
+        save_last_digest(LAST_DIGEST_FILE,
+                         (result.get("chat") or {}).get("id"),
+                         result.get("message_id"), today)
+        print(f"telegram: digest message_id={result.get('message_id')}")
 
     return 0
 

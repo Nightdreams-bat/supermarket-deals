@@ -37,6 +37,14 @@ def _discount_sort_key(offer: Offer):
     )
 
 
+def hots(offers: list[Offer], n: int = 5, today: date | None = None) -> list[Offer]:
+    today = today or date.today()
+    active = [o for o in offers
+             if is_active(o, today) and o.discount_pct is not None]
+    active.sort(key=_discount_sort_key)
+    return active[:n]
+
+
 def rank(offers: list[Offer], watchlist: list[str], top_n: int = 10,
          today: date | None = None) -> tuple[list[Offer], list[Offer]]:
     today = today or date.today()

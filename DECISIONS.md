@@ -47,6 +47,49 @@ PLUS a daily "top 10 by discount %" fallback across everything else.
 **Decision:** Local Python script, Windows Task Scheduler, ~08:00 daily. Runs only
 when PC is on — acceptable.
 
+## ADR-006 — Interactive Telegram store filter
+**Status:** Accepted (2026-09-07)
+
+**Context:** The daily digest mixes all four stores. The user wants to tap a
+button to see just one store's deals, re-ranked, without a new message each time.
+A webhook needs a public HTTPS URL; the daily pipeline runs only when the PC is on
+and must not gain a dependency on a bot process.
+
+**Decision:**
+1. **Long-poll, not webhook.** `bot.py` loops `getUpdates` (~30s timeout, `offset`
+   ack). No public URL, no TLS.
+2. **Separate process.** `run.py`'s daily behavior is unchanged except it now
+   attaches the inline keyboard to the digest send and writes
+   `data/last_digest.json`. `run.py` never depends on `bot.py` being up.
+3. **Re-render source = `data/deals.json`.** A button tap loads the rolling deals
+   file, filters offers to the tapped retailer label, runs the SAME `rank()` /
+   `hots()` the digest uses, and calls `editMessageText`. Deserialization reuses
+   `store.load_rolling()` (no duplicated date parsing).
+4. **State.** Stateless w.r.t. Telegram: `callback_data` = `flt:<slug>` (e.g.
+   `flt:lidl`, `flt:all`), well under the 64-byte cap. The message to edit comes
+   from `callback_query.message` primarily; `data/last_digest.json`
+   (`{chat_id, message_id, date}`) is the fallback so a tap or `/start` after a
+   restart still works. `bot.py` also persists its `offset` in
+   `data/bot_offset.json`.
+5. **Buttons.** One per DISTINCT display label in `RETAILER_LABELS` restricted to
+   `RETAILERS` (Norma, Hofer, Lidl, Spar/Eurospar - the spar/eurospar collision
+   folded to one), plus "All". <=3 buttons per row. The active view's button is
+   prefixed with "• "; "All" is the unfiltered `build_message` output.
+6. **Filtered view rendering.** Reuse `build_message` with the store's
+   filtered `hits`/`top`/`hots`; same HTML/link formatting; a `<b>Filtered:
+   Lidl</b>` header line. "All" recomputes from the full `deals.json` with the
+   watchlist from `load_watchlist()`.
+7. **Config / creds.** `bot.py` loads `config.ini` via `run.load_config`. The
+   token is never logged. `getUpdates` errors back off (sleep, no crash-loop). A
+   409 "conflict" (another poller) is logged clearly and exits non-zero.
+8. **Encoding.** `bot.py` does the same `sys.stdout.reconfigure(encoding="utf-8")`
+   guard as `run.py`.
+
+**Consequences:** A second always-on process ("SupermarketDealsBot" task, at
+logon, restarts 3x). Both processes are down while the PC is off - acceptable, as
+with the daily task. Filter views reflect the last stored `deals.json`, not a live
+fetch. Only one poller may run at a time (409 guard).
+
 ## Telegram (setup complete 2026-09-07)
 - Bot: "Linz Deals" (@lin_deals_bot)
 - Token + chat ID (6622932923) → stored in `config.ini` (gitignored). Delivery tested OK.
