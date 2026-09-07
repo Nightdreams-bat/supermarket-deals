@@ -1,0 +1,1 @@
+# Standard library only (urllib, json, configparser). No third-party packages.

@@ -1,0 +1,13 @@
+# One product or keyword per line. Case-insensitive substring match against
+# the offer's product name + brand. Lines starting with '#' are ignored.
+# Use the German spelling (incl. umlauts) as it appears on the price tag.
+Milch
+Butter
+Kaffee
+Hühnerbrust
+Eier
+Käse
+Toilettenpapier
+Banane
+Waschmittel
+Olivenöl
