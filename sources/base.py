@@ -16,7 +16,7 @@ class Offer:
     url: str | None
 
     def key(self) -> str:
-        return f"{self.retailer}|{self.product}|{self.valid_to}"
+        return f"{self.retailer}|{self.brand or ''}|{self.product}|{self.valid_to}"
 
 
 class Source(ABC):

@@ -24,9 +24,11 @@ def _days_left(offer: Offer, today: date) -> str | None:
     if not offer.valid_to:
         return None
     delta = (offer.valid_to - today).days
-    if delta <= 0:
+    if delta < 0:
+        return None
+    if delta == 0:
         return "last day"
-    return f"{delta} days left"
+    return f"{delta} day{'s' if delta != 1 else ''} left"
 
 
 def watchlist_line(offer: Offer, today: date, esc=_identity) -> str:
@@ -44,13 +46,13 @@ def watchlist_line(offer: Offer, today: date, esc=_identity) -> str:
 def discount_line(offer: Offer, today: date, esc=_identity) -> str:
     parts = [esc(f"{offer.product} — {offer.retailer}")]
     price = _price(offer.price)
+    was = _price(offer.old_price)
+    pct = f"−{offer.discount_pct:g}%" if offer.discount_pct is not None else None
     if price:
-        if offer.discount_pct is not None:
-            parts.append(f"{price} (−{offer.discount_pct:g}%)")
-        else:
-            parts.append(price)
-    elif offer.discount_pct is not None:
-        parts.append(f"−{offer.discount_pct:g}%")
+        extra = ", ".join(p for p in (f"was {was}" if was else None, pct) if p)
+        parts.append(f"{price} ({extra})" if extra else price)
+    elif pct:
+        parts.append(pct)
     days = _days_left(offer, today)
     if days:
         parts.append(days)
@@ -75,9 +77,13 @@ def build_message(watchlist_hits: list[Offer], top_discounts: list[Offer],
     lines.append("<b>🔥 Biggest discounts</b>")
     lines += [discount_line(o, today, esc) for o in top_discounts]
 
+    dropped = False
+    while len("\n".join(lines)) > TELEGRAM_MAX - 2 and len(lines) > 1:
+        lines.pop()
+        dropped = True
     message = "\n".join(lines).strip()
-    if len(message) > TELEGRAM_MAX:
-        message = message[:TELEGRAM_MAX - 1].rstrip() + "…"
+    if dropped:
+        message += "\n…"
     return message
 
 
@@ -93,4 +99,9 @@ def send(message: str, token: str, chat_id: str) -> dict:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
-        return json.loads(exc.read())
+        try:
+            return json.loads(exc.read())
+        except (ValueError, OSError):
+            return {"ok": False, "error": f"HTTP {exc.code}"}
+    except Exception as exc:  # URLError, timeout, non-JSON body
+        return {"ok": False, "error": str(exc)}

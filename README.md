@@ -5,17 +5,22 @@ marktguru.at, stores them as JSON, appends a dated section to an Obsidian vault
 note, and sends a daily Telegram digest with the best prices and how many days
 each deal still has left.
 
-Tracked stores: **Norma, Eurospar, Lidl, Hofer**.
+Tracked stores: **Norma, Spar/Eurospar, Lidl, Hofer**. (Interspar is a separate
+hypermarket leaflet — not tracked; add `"interspar"` to `RETAILERS` if you shop
+the PlusCity / Wiener Straße store.)
 
 ## How it works
 
 1. `sources/marktguru.py` scrapes the marktguru.at API keys from the homepage,
-   sweeps a broad list of staple keywords against `offers/search`, dedupes by
-   offer id, and normalizes each hit to an `Offer`.
-2. `store.py` writes `data/deals-<date>.json` plus a rolling `data/deals.json`,
-   deduping by `retailer|product|valid_to` and dropping expired offers.
-3. `rank.py` matches offers against `watchlist.txt` and picks the top 10 by
-   discount for everything else.
+   runs one `offers/search` query per tracked banner (the banner name is itself
+   a valid query returning that banner's full offer set), dedupes by offer id,
+   filters to the tracked banners client-side, and normalizes each hit to an
+   `Offer`. Falls back to a keyword sweep only for a banner that returns nothing.
+2. `store.py` writes a rolling `data/deals.json` (deduped by
+   `retailer|product|valid_to`; expired offers dropped, undated offers aged out
+   after 28 days) plus a raw daily snapshot `data/deals-<date>.json`.
+3. `rank.py` drops offers that are expired or not yet started, matches the rest
+   against `watchlist.txt`, and picks the top 10 by discount for everything else.
 4. `notify.py` sends the Telegram message; `vault.py` appends the same content
    to the vault note.
 5. `run.py` orchestrates all of the above.
@@ -64,8 +69,8 @@ duplicating it.
   the inline `application/json` config block, and adjust the regex in
   `sources/marktguru.py::_scrape_keys`. The app auto-re-scrapes on HTTP 401/403.
 - **0 offers**: usually a transient network problem to `api.marktguru.at`
-  (the sweep tolerates per-keyword failures and prints them). Re-run. If it
-  persists, check the API is reachable and the keys in `.keys.json` are current.
+  (per-banner failures are tolerated and printed, then a keyword fallback runs).
+  Re-run. If it persists, check the API is reachable and delete `.keys.json`.
 - **Telegram 400**: bad token/chat id in `config.ini`, or HTML in a product name
   broke `parse_mode=HTML`. Check the printed `telegram error:` payload.
 - The scheduled task only runs while the PC is on and awake (task is set to
@@ -76,5 +81,7 @@ duplicating it.
 See the top of `sources/marktguru.py`. Endpoint:
 `GET https://api.marktguru.at/api/v1/offers/search?as=web&q=<term>&zipCode=4020&limit=1000&offset=0`
 with headers `X-ApiKey` / `X-ClientKey`. `q` is mandatory (empty / `*` / single
-letters return nothing), and `allowedRetailers` is ignored by the backend, so we
-sweep keywords and filter retailers client-side.
+letters return nothing) but the banner name itself (`q=lidl`) is a valid query
+that returns that banner's entire offer set, so we query one term per banner.
+`allowedRetailers` is ignored by the backend, so retailers are still filtered
+client-side on `advertisers[].uniqueName`.

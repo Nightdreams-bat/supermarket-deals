@@ -1,8 +1,17 @@
+from datetime import date
 from pathlib import Path
 
 from sources.base import Offer
 
 WATCHLIST_FILE = Path(__file__).resolve().parent / "watchlist.txt"
+
+
+def is_active(offer: Offer, today: date) -> bool:
+    if offer.valid_from and offer.valid_from > today:
+        return False
+    if offer.valid_to and offer.valid_to < today:
+        return False
+    return True
 
 
 def load_watchlist(path: Path | None = None) -> list[str]:
@@ -28,8 +37,10 @@ def _discount_sort_key(offer: Offer):
     )
 
 
-def rank(offers: list[Offer], watchlist: list[str],
-         top_n: int = 10) -> tuple[list[Offer], list[Offer]]:
+def rank(offers: list[Offer], watchlist: list[str], top_n: int = 10,
+         today: date | None = None) -> tuple[list[Offer], list[Offer]]:
+    today = today or date.today()
+    offers = [o for o in offers if is_active(o, today)]
     hits = []
     hit_ids = set()
     for offer in offers:

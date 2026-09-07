@@ -21,9 +21,15 @@ ROOT = Path(__file__).resolve().parent
 CONFIG_FILE = ROOT / "config.ini"
 
 
-def load_config() -> configparser.ConfigParser:
+def load_config(require_telegram: bool) -> configparser.ConfigParser:
     cfg = configparser.ConfigParser()
     cfg.read(CONFIG_FILE, encoding="utf-8")
+    if require_telegram:
+        if not cfg.has_option("telegram", "token") or \
+           not cfg.has_option("telegram", "chat_id"):
+            raise SystemExit(
+                f"config error: {CONFIG_FILE} needs a [telegram] section with "
+                f"token and chat_id (copy config.example.ini)")
     return cfg
 
 
@@ -45,26 +51,26 @@ def main() -> int:
     args = parser.parse_args()
 
     today = date.today()
-    cfg = load_config()
+    cfg = load_config(require_telegram=not (args.dry_run or args.no_telegram))
 
     offers = fetch_all()
     counts = Counter(o.retailer for o in offers)
     print("\nper-retailer offer counts:")
-    for retailer in ("Norma", "Eurospar", "Lidl", "Hofer"):
-        print(f"  {retailer}: {counts.get(retailer, 0)}")
+    for retailer in sorted(counts):
+        print(f"  {retailer}: {counts[retailer]}")
 
     if not offers:
         print("ERROR: all sources returned 0 offers", file=sys.stderr)
         return 1
 
     if args.dry_run:
-        ranked = offers
+        ranked = store.dedupe(offers, today)
     else:
         ranked = store.save(offers, today)
         print(f"\nstored {len(ranked)} live offers -> data/deals.json")
 
     watchlist = load_watchlist()
-    hits, top = rank(ranked, watchlist)
+    hits, top = rank(ranked, watchlist, today=today)
     message = build_message(hits, top, today)
 
     print("\n" + "=" * 60)

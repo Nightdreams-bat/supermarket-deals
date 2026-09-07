@@ -17,30 +17,30 @@ USER_AGENT = (
 )
 KEYS_FILE = Path(__file__).resolve().parent.parent / ".keys.json"
 
-# The API is search-only (an empty or single-letter q returns nothing), so a
-# store's full offer set is approximated by sweeping a broad staple keyword list
-# and deduping by offer id. allowedRetailers is ignored by the backend, so
-# retailers are filtered client-side on advertiser uniqueName.
-KEYWORDS = [
-    "milch", "butter", "kaffee", "tee", "eier", "kaese", "joghurt", "topfen",
-    "sahne", "brot", "gebaeck", "semmel", "toast", "wurst", "schinken", "speck",
-    "huhn", "haehnchen", "pute", "schwein", "rind", "faschiertes", "fisch",
-    "lachs", "thunfisch", "apfel", "banane", "orange", "trauben", "beeren",
-    "tomate", "gurke", "paprika", "kartoffel", "zwiebel", "karotte", "salat",
-    "champignon", "nudeln", "pasta", "reis", "mehl", "zucker", "oel", "olivenoel",
-    "essig", "salz", "konserve", "suppe", "sauce", "ketchup", "senf", "muesli",
-    "cornflakes", "keks", "schokolade", "praline", "chips", "snack", "nuesse",
-    "eis", "tiefkuehl", "pizza", "pommes", "bier", "wein", "sekt", "spirituose",
-    "wasser", "limonade", "cola", "saft", "energy", "waschmittel", "weichspueler",
-    "spuelmittel", "putzmittel", "klopapier", "toilettenpapier", "kuechenrolle",
-    "taschentuch", "shampoo", "duschgel", "seife", "zahnpasta", "deo",
-    "windel", "katzenfutter", "hundefutter", "kaffeekapsel", "mineralwasser",
+# The API is search-only (an empty or single-letter q returns nothing), but the
+# banner name itself is a valid query that returns that banner's entire offer
+# set in one paginated call (filters.retailers confirms the count). We query one
+# term per tracked banner and still filter client-side on advertiser uniqueName,
+# because a text query for "lidl" also text-matches the odd "penny"/"dm" row.
+# allowedRetailers is ignored by the backend, hence the client-side filter.
+FALLBACK_KEYWORDS = [
+    "milch", "butter", "kaffee", "brot", "kaese", "wurst", "huhn", "apfel",
+    "kartoffel", "nudeln", "reis", "mehl", "oel", "schokolade", "bier", "wasser",
+    "waschmittel", "toilettenpapier", "shampoo", "windel",
 ]
 
-RETAILERS = {"norma", "hofer", "lidl", "eurospar"}
+# uniqueName -> display label. SPAR splits its weekly Flugblatt across the "spar"
+# and "eurospar" banners (mostly disjoint products, same in-store prices), so
+# both are tracked and shown as one shop.
 RETAILER_LABELS = {
-    "norma": "Norma", "hofer": "Hofer", "lidl": "Lidl", "eurospar": "Eurospar",
+    "norma": "Norma",
+    "hofer": "Hofer",
+    "lidl": "Lidl",
+    "spar": "Spar/Eurospar",
+    "eurospar": "Spar/Eurospar",
+    "interspar": "Interspar",
 }
+RETAILERS = {"norma", "hofer", "lidl", "spar", "eurospar"}
 
 
 class MarktguruSource(Source):
@@ -89,7 +89,7 @@ class MarktguruSource(Source):
         with urllib.request.urlopen(req, timeout=40) as resp:
             return resp.read().decode("utf-8", "ignore")
 
-    def _search(self, term: str, keys: dict) -> list[dict]:
+    def _search(self, term: str) -> list[dict]:
         results: list[dict] = []
         offset = 0
         while True:
@@ -99,11 +99,10 @@ class MarktguruSource(Source):
             })
             url = f"{SEARCH_URL}?{params}"
             try:
-                raw = self._get(url, keys)
+                raw = self._get(url, self._keys_dict())
             except urllib.error.HTTPError as exc:
                 if exc.code in (401, 403):
-                    keys = self._keys_dict(force=True)
-                    raw = self._get(url, keys)
+                    raw = self._get(url, self._keys_dict(force=True))
                 else:
                     raise
             data = json.loads(raw)
@@ -169,22 +168,35 @@ class MarktguruSource(Source):
             url=url,
         )
 
-    def fetch_offers(self) -> list[Offer]:
-        keys = self._keys_dict()
-        seen: dict[int, Offer] = {}
-        for term in KEYWORDS:
+    def _collect(self, terms) -> dict:
+        seen: dict = {}
+        for term in terms:
             try:
-                rows = self._search(term, keys)
-            except Exception as exc:  # keep sweeping other terms
-                print(f"  marktguru: term '{term}' failed: {exc}")
+                rows = self._search(term)
+            except Exception as exc:  # keep going with the other terms
+                print(f"  marktguru: query '{term}' failed: {exc}")
                 time.sleep(self.sleep)
                 continue
             for raw in rows:
                 oid = raw.get("id")
-                if oid in seen:
+                dedup = oid if oid is not None else (
+                    "x", raw.get("description"), raw.get("price"))
+                if dedup in seen:
                     continue
                 offer = self._to_offer(raw)
                 if offer:
-                    seen[oid] = offer
+                    seen[dedup] = offer
             time.sleep(self.sleep)
+        return seen
+
+    def fetch_offers(self) -> list[Offer]:
+        # One query per banner returns that banner's full offer set; fall back to
+        # a keyword sweep only for a banner that comes back empty.
+        seen = self._collect(sorted(self.retailers))
+        got = {o.retailer for o in seen.values()}
+        missing = {RETAILER_LABELS.get(r, r) for r in self.retailers} - got
+        if missing:
+            print(f"  marktguru: no offers via banner query for {missing}; "
+                  f"trying keyword fallback")
+            seen.update(self._collect(FALLBACK_KEYWORDS))
         return list(seen.values())
