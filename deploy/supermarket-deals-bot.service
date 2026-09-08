@@ -1,0 +1,14 @@
+[Unit]
+Description=Linz Deals Telegram bot (long-polling)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/supermarket-deals
+ExecStart=/usr/bin/python3 bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

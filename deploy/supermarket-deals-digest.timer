@@ -1,0 +1,9 @@
+[Unit]
+Description=Run the Linz Deals daily digest at 08:00 Europe/Vienna
+
+[Timer]
+OnCalendar=*-*-* 08:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
