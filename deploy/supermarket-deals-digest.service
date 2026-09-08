@@ -1,9 +1,0 @@
-[Unit]
-Description=Linz Deals daily digest (fetch -> store -> telegram)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-WorkingDirectory=/opt/supermarket-deals
-ExecStart=/usr/bin/python3 run.py --no-vault

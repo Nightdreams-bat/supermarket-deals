@@ -154,7 +154,7 @@ class MarktguruSource(Source):
 
         validity = (raw.get("validityDates") or [{}])[0]
         offer_id = raw.get("id")
-        url = f"https://www.marktguru.at/offer/{offer_id}" if offer_id else None
+        url = f"https://www.marktguru.at/offers/{offer_id}" if offer_id else None
 
         return Offer(
             retailer=RETAILER_LABELS.get(unique, unique.title()),
