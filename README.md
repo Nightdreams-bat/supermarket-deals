@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="assets/hero.png" alt="Daily Telegram digest of Linz supermarket deals" width="100%">
-
-# supermarket-deals
+<img src="assets/header.png" alt="supermarket-deals" width="100%">
 
 **A zero-dependency Python pipeline that scrapes every supermarket promo in Linz, ranks it
 against your shopping list, and sends it to Telegram every morning.**
@@ -24,12 +22,14 @@ expired and not-yet-valid ones, and sends you three short lists:
 
 | Section | What's in it |
 |---|---|
-| 🔥 **This week's hots** | The biggest percentage cuts across all four chains |
-| ⭐ **On your watchlist** | Anything you buy regularly (`watchlist.txt`) that's on sale today |
-| 🔥 **Biggest discounts** | The top 10 of everything else |
+| **This week's hots** | The biggest percentage cuts across all four chains |
+| **On your watchlist** | Anything you buy regularly (`watchlist.txt`) that's on sale today |
+| **Biggest discounts** | The top 10 of everything else |
 
 Every line shows the price, the old price, the store, and **how many days the deal has left**.
 Tap a store button under the message and the digest is re-ranked for that store only.
+
+<img src="assets/hero.png" alt="Daily Telegram digest of Linz supermarket deals" width="100%">
 
 ## Highlights
 
