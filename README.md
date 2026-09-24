@@ -14,6 +14,12 @@ against your shopping list, and sends it to Telegram every morning.**
 
 ---
 
+<table>
+<tr><td><b>Problem</b></td><td>Four supermarket leaflets a week, and the deals site I planned to use had shut down.</td></tr>
+<tr><td><b>Approach</b></td><td>I found the API behind another deals site, wrote the plan as five decision records, had one model build it and a different model review it. The review caught five real bugs, including a search that missed half of each store's offers.</td></tr>
+<tr><td><b>Result</b></td><td>A Telegram message every morning with the deals on my shopping list, out of about 1,100 offers.</td></tr>
+</table>
+
 ## Why
 
 Weekly supermarket leaflets are built to make you browse. This one reads them for you. Every
