@@ -84,7 +84,9 @@ def main() -> int:
         return 0
 
     if not args.no_vault:
-        path = vault.append(hits, top, today, hots=hot)
+        vault_path = cfg.get("vault", "path", fallback="").strip()
+        path = vault.append(hits, top, today, hots=hot,
+                            path=Path(vault_path) if vault_path else None)
         print(f"vault updated: {path}")
 
     if not args.no_telegram:

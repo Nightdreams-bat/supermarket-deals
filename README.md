@@ -1,13 +1,52 @@
-# Supermarket Deals (Linz)
+<div align="center">
 
-Scrapes daily supermarket promotions for Linz, Austria (zip 4020) from
-marktguru.at, stores them as JSON, appends a dated section to an Obsidian vault
-note, and sends a daily Telegram digest with the best prices and how many days
-each deal still has left.
+<img src="assets/hero.png" alt="Daily Telegram digest of Linz supermarket deals" width="100%">
 
-Tracked stores: **Norma, Spar/Eurospar, Lidl, Hofer**. (Interspar is a separate
-hypermarket leaflet — not tracked; add `"interspar"` to `RETAILERS` if you shop
-the PlusCity / Wiener Straße store.)
+# supermarket-deals
+
+**A zero-dependency Python pipeline that scrapes every supermarket promo in Linz, ranks it
+against your shopping list, and sends it to Telegram every morning.**
+
+![Python](https://img.shields.io/badge/python-3.10+-3776AB?logo=python&logoColor=white)
+![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)
+![Telegram](https://img.shields.io/badge/Telegram-bot-26A5E4?logo=telegram&logoColor=white)
+![Runs on](https://img.shields.io/badge/runs%20on-Windows%20%7C%20Linux%20(systemd)-555)
+
+</div>
+
+---
+
+## Why
+
+Weekly supermarket leaflets are built to make you browse. This one reads them for you. Every
+morning it pulls **~1,100 live offers** from Norma, Spar/Eurospar, Lidl and Hofer, removes the
+expired and not-yet-valid ones, and sends you three short lists:
+
+| Section | What's in it |
+|---|---|
+| 🔥 **This week's hots** | The biggest percentage cuts across all four chains |
+| ⭐ **On your watchlist** | Anything you buy regularly (`watchlist.txt`) that's on sale today |
+| 🔥 **Biggest discounts** | The top 10 of everything else |
+
+Every line shows the price, the old price, the store, and **how many days the deal has left**.
+Tap a store button under the message and the digest is re-ranked for that store only.
+
+## Highlights
+
+- **Reverse-engineered data source.** The original source (Aktionsfinder.at) shut down, so the
+  scraper uses marktguru.at's JSON backend. It pulls the API keys from the site's own boot
+  config at runtime and re-scrapes them automatically when they rotate.
+- **~100% coverage per chain.** One query per store brand replaces a 90-keyword sweep and
+  roughly doubled coverage (Lidl 217 → 464 offers, Spar group 60 → 360).
+- **Interactive bot, no server.** `bot.py` long-polls Telegram, so it needs no public URL,
+  no TLS, and no webhook. It edits the digest in place when you tap a filter.
+- **Standard library only.** No `pip install` step.
+- **Runs anywhere.** Windows Task Scheduler scripts, or an always-on Linux VM with the
+  systemd units in `deploy/`.
+- **Obsidian log.** Each day's digest is also appended to a Markdown note, so you get a
+  searchable price history.
+- **Documented decisions.** Every design choice and revision is recorded as an ADR in
+  [`DECISIONS.md`](DECISIONS.md).
 
 ## How it works
 
@@ -84,9 +123,9 @@ asleep. Taps made while it's down are processed when it next starts.
 
 ## The vault note
 
-`D:\V A U L T\Brain\Deals\supermarket-deals.md` — the folder and file are created
-on first run. Re-running on the same day replaces that day's section instead of
-duplicating it.
+By default each day's section is appended to `data/supermarket-deals.md`. To write into an
+Obsidian vault instead, set `[vault] path` in `config.ini`. Re-running on the same day replaces
+that day's section instead of duplicating it.
 
 ## Troubleshooting
 
@@ -112,3 +151,7 @@ letters return nothing) but the banner name itself (`q=lidl`) is a valid query
 that returns that banner's entire offer set, so we query one term per banner.
 `allowedRetailers` is ignored by the backend, so retailers are still filtered
 client-side on `advertisers[].uniqueName`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

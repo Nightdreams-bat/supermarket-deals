@@ -36,7 +36,7 @@ looked infrequently updated — accept.
 ## ADR-003 — Storage & notification
 **Decision:** Deals stored as JSON (`data/deals-YYYY-MM-DD.json` + rolling `deals.json`,
 deduped by retailer+product+valid-until). A dated section appended to the Obsidian
-vault at `D:\V A U L T\Brain`. Daily Telegram message: watchlist hits + top-10 by
+vault (note path set in `config.ini`). Daily Telegram message: watchlist hits + top-10 by
 discount %, each line = product · store · deal price (was X) · "N days left".
 
 ## ADR-004 — Ranking

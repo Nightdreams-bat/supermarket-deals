@@ -5,7 +5,9 @@ from pathlib import Path
 from notify import _md_link, discount_line, watchlist_line
 from sources.base import Offer
 
-VAULT_FILE = Path(r"D:\V A U L T\Brain\Deals\supermarket-deals.md")
+# Default location; override with [vault] path in config.ini (e.g. a note inside
+# your Obsidian vault).
+VAULT_FILE = Path(__file__).resolve().parent / "data" / "supermarket-deals.md"
 HEADER = "# Supermarket Deals Log"
 
 
